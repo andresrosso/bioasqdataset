@@ -16,15 +16,20 @@ tokenizer = nltk.data.load('tokenizers/punkt/english.pickle')
 #import trecqa_jakanahelper as trec
 
 class QAPair():
-    def __init__(self, qi, q, ai, a, l):
+    def __init__(self, qi, q, ai, a, l, **kwargs):
         self.qi = qi
         self.q = q
         self.ai = ai
         self.a = a
         self.l = l
+        self.params = kwargs
 
     def __repr__(self):
         return 'qi('+str(self.qi)+') '+'ai('+str(self.ai)+')'+' '+str(self.l)
+    
+    def values(self):
+        attrs = vars(self)
+        return ', '.join("%s: %s" % item for item in attrs.items())
 
 class QADataSet(object):
 
@@ -141,15 +146,17 @@ class BiosqDataSet(QADataSet):
         return self.questions_answer_pairs
 
 #BioASQ 2018
-class BiosqUnalDataSet(QADataSet):
+class BioasqUnalDataSet(QADataSet):
 
-    def __init__(self,year,path):
-        QADataSet.__init__(self,'BiosqUnalDataSet')
+    def __init__(self,year,path, threshold=(0.0,1)):
+        QADataSet.__init__(self,'BioasqUnalDataSet')
         print(year,path)
         questions = []
         self.question_files = []
+        self.threshold = threshold
         for f in os.listdir(path):
-            self.question_files += [path+'/'+f]
+            if '.json' in f:
+                self.question_files += [path+'/'+f]
 
     def get_stats(self):
         return 'Number of pairs: '+str(len(self.questions_answer_pairs))
@@ -163,7 +170,11 @@ class BiosqUnalDataSet(QADataSet):
         for f_q in self.question_files:
             data = json.load(open(f_q))
             for pair in data:
-                self.questions_answer_pairs += [QAPair(pair['questionId'], pair['question'], pair['pairId'], pair['passage'], pair['is_answer'])]
+                if pair:
+                    if (pair['bioSentVecCosSim'] >= self.threshold[0]) and (pair['bioSentVecCosSim'] <= self.threshold[1]):
+                        self.questions_answer_pairs += [QAPair(pair['questionId'], pair['question'], pair['pairId'], pair['passage'], pair['is_answer'],bioSentVecCosSim=pair['bioSentVecCosSim'])]
+        print('Loaded BioasqUnalDataSet')
+        print('threshold ',self.threshold)
         print(self.get_stats())
         return self.questions_answer_pairs
     
